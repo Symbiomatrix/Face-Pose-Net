@@ -24,7 +24,7 @@ The result is an end-to-end pipeline that seamlessly estimates facial pose and p
 * The corresponding 3D shape and landmarks can be obtained by predicted 6DoF head pose [3D shape from 6DoF](https://github.com/fengju514/Face-Pose-Net/blob/92bd65fa056d17065890e186ca2f2b376a5ab135/main_predict_6DoF.py#L271-L297) or by predicted 11 parameters [3D shape from 11 parameters](https://github.com/fengju514/Face-Pose-Net/blob/92bd65fa056d17065890e186ca2f2b376a5ab135/main_predict_ProjMat.py#L272-L297)
 * Download new FPN models: Please put all model files [here](https://www.dropbox.com/sh/lr9u4my1qrhmgik/AADQVUIHSJIUXqUAj1AoZMIGa?dl=0) in the folder `models`
 * Download BFM models: Please put BFM shape and expression files [here](https://www.dropbox.com/sh/ru7ierl9516a9az/AABTP9hJj3dJnapicFFgHmOna?dl=0) in the folder `BFM`
-* Download de-pickled set of weights for alexnet [here] (https://bafybeid2bys3z62tht6ixe5qll6xiszyfqi44z6nx753rg7elawnsn5kmm.ipfs.dweb.link/PAM_frontal_ALexNet_Py3.7z) , add to folder `fpn_new_model`
+* Download de-pickled set of weights for alexnet [here](https://bafybeid2bys3z62tht6ixe5qll6xiszyfqi44z6nx753rg7elawnsn5kmm.ipfs.dweb.link/PAM_frontal_ALexNet_Py3.7z) , add to folder `fpn_new_model`
 * Run new FPN to predict 6DoF head pose:
 ```bash
 $ python main_predict_6DoF.py <gpu_id> <input-list-path>
