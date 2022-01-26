@@ -50,7 +50,6 @@ class Network_Shape(object):
     def setup(self):
         '''Construct the network. '''
         raise NotImplementedError('Must be implemented by the subclass.')
-
     
     def load(self, data_path, prefix_name, session, ignore_missing=False):
         '''Load network weights.
@@ -59,31 +58,30 @@ class Network_Shape(object):
         ignore_missing: If true, serialized weights for missing layers are ignored.
         '''
         data_dict = np.load(data_path).item()
-        print len(data_dict) #data_dict['res2b_branch2a']
+        print len(data_dict)  # data_dict['res2b_branch2a']
         for op_name in data_dict:
-            #print op_name
-            #if op_name == "res2b_branch2a":
+            # print op_name
+            # if op_name == "res2b_branch2a":
             #    REUSE = None
-            #else:
+            # else:
             #    REUSE = True
             
             if op_name == 'fc_ftnew':
                 continue
 
-            with tf.variable_scope(prefix_name + '/' + op_name, reuse=True): # reuse=True
+            with tf.variable_scope(prefix_name + '/' + op_name, reuse=True):  # reuse=True
                 for param_name, data in data_dict[op_name].iteritems():
-                    #if op_name == 'fc_ftnew':   
+                    # if op_name == 'fc_ftnew':   
                     #    print param_name, data, data.shape
                     try:
-                        #if op_name == "res2b_branch2a":
+                        # if op_name == "res2b_branch2a":
                         #        var = tf.Variable(data_dict[op_name][param_name], trainable=False, name=param_name)
-                        #else:
+                        # else:
                         var = tf.get_variable(param_name)
                         session.run(var.assign(data))
                     except ValueError:
                         if not ignore_missing:
                             raise
-    
 
     """
     def load(self, data_path, ignore_missing=False):
@@ -117,18 +115,15 @@ class Network_Shape(object):
         ignore_missing: If true, serialized weights for missing layers are ignored.
         '''
         data_dict = np.load(data_path).item()
-        with tf.variable_scope(op_name, reuse=True): # reuse=None
+        with tf.variable_scope(op_name, reuse=True):  # reuse=None
             for param_name, data in data_dict[op_name].iteritems():
-                #print param_name, data
+                # print param_name, data
                 try:
                     var = tf.get_variable(param_name)
                     session.run(var.assign(data))
                 except ValueError:
                     if not ignore_missing:
                         raise
-
-
-
 
     def feed(self, *args):
         '''Set the input(s) for the next operation by replacing the terminal nodes.
@@ -158,15 +153,15 @@ class Network_Shape(object):
 
     def make_var(self, name, shape):
         '''Creates a new TensorFlow variable.'''
-        return tf.get_variable(name, shape, trainable=self.trainable) #self.trainable)
-        #tmp = tf.get_variable(name, shape=shape, trainable=False)
-        #return tf.Variable(tmp, trainable=False, name=name)
+        return tf.get_variable(name, shape, trainable=self.trainable)  # self.trainable)
+        # tmp = tf.get_variable(name, shape=shape, trainable=False)
+        # return tf.Variable(tmp, trainable=False, name=name)
 
     def make_var_fixed(self, name, shape):
         '''Creates a new TensorFlow variable.'''
         return tf.get_variable(name, shape, trainable=False)
-        #tmp = tf.get_variable(name, shape=shape, trainable=False)
-        #return tf.Variable(tmp, trainable=False, name=name)
+        # tmp = tf.get_variable(name, shape=shape, trainable=False)
+        # return tf.Variable(tmp, trainable=False, name=name)
 
     def validate_padding(self, padding):
         '''Verifies that the padding is one of the supported ones.'''
@@ -196,12 +191,12 @@ class Network_Shape(object):
         convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
         with tf.variable_scope(name) as scope:
             if name == 'res5c_branch2c' or name == 'res5c_branch2b' or name == 'res5c_branch2a' or \
-               name == 'res5b_branch2c' or name == 'res5b_branch2b' or name == 'res5b_branch2a': # or \
-               #name == 'res5a_branch2c' or name == 'res5a_branch2b' or name == 'res5a_branch2a' or \
-               #name == 'res5a_branch1':    
+               name == 'res5b_branch2c' or name == 'res5b_branch2b' or name == 'res5b_branch2a':  # or \
+               # name == 'res5a_branch2c' or name == 'res5a_branch2b' or name == 'res5a_branch2a' or \
+               # name == 'res5a_branch1':    
                 kernel = self.make_var('weights', shape=[k_h, k_w, c_i / group, c_o])
             else:
-                #kernel = self.make_var_fixed('weights', shape=[k_h, k_w, c_i / group, c_o])
+                # kernel = self.make_var_fixed('weights', shape=[k_h, k_w, c_i / group, c_o])
                 kernel = self.make_var('weights', shape=[k_h, k_w, c_i / group, c_o])
 
             if group == 1:
@@ -217,12 +212,12 @@ class Network_Shape(object):
             # Add the biases
             if biased:
                 if name == 'res5c_branch2c' or name == 'res5c_branch2b' or name == 'res5c_branch2a' or \
-                   name == 'res5b_branch2c' or name == 'res5b_branch2b' or name == 'res5b_branch2a': # or \
-                   #name == 'res5a_branch2c' or name == 'res5a_branch2b' or name == 'res5a_branch2a' or \
-                   #name == 'res5a_branch1':    
+                   name == 'res5b_branch2c' or name == 'res5b_branch2b' or name == 'res5b_branch2a':  # or \
+                   # name == 'res5a_branch2c' or name == 'res5a_branch2b' or name == 'res5a_branch2a' or \
+                   # name == 'res5a_branch1':    
                         biases = self.make_var('biases', [c_o])
                 else:
-                        #biases = self.make_var_fixed('biases', [c_o])
+                        # biases = self.make_var_fixed('biases', [c_o])
                         biases = self.make_var('biases', [c_o])
                 output = tf.nn.bias_add(output, biases)
             if relu:
@@ -308,16 +303,16 @@ class Network_Shape(object):
             if scale_offset:
                 scale = self.make_var_fixed('scale', shape=shape)
                 offset = self.make_var_fixed('offset', shape=shape)
-                #scale = self.make_var('scale', shape=shape)
-                #offset = self.make_var('offset', shape=shape)
+                # scale = self.make_var('scale', shape=shape)
+                # offset = self.make_var('offset', shape=shape)
             else:
                 scale, offset = (None, None)
             output = tf.nn.batch_normalization(
                 input,
                 mean=self.make_var_fixed('mean', shape=shape),
                 variance=self.make_var_fixed('variance', shape=shape),
-                #mean=self.make_var('mean', shape=shape),
-                #variance=self.make_var('variance', shape=shape),
+                # mean=self.make_var('mean', shape=shape),
+                # variance=self.make_var('variance', shape=shape),
                 offset=offset,
                 scale=scale,
                 # TODO: This is the default Caffe batch norm eps

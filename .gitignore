@@ -1,0 +1,10 @@
+/models/*
+/fpn_new_model/*
+/BFM/*.mat
+/tmp/*
+/output_pose.lmdb/*
+/output_render/subject*
+*.pyc
+__pycache
+.project
+/output_preproc.csv

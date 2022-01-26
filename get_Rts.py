@@ -5,13 +5,20 @@ import sys
 import time
 import csv                                                                                                                                        
 import numpy as np
+# save np.load SBM
+np_load_old = np.load
+
+# modify the default parameters of np.load
+np_load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+
 import numpy.matlib
 import os
 
 import pose_model as Pose_model
 import tf_utils as util
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf # SBM
+tf.compat.v1.disable_eager_execution()
 import scipy
 from scipy import ndimage, misc
 import os.path
@@ -30,27 +37,44 @@ tf.app.flags.DEFINE_string('input_csv', 'input.csv', 'input file to process')
 tf.app.flags.DEFINE_string('output_lmdb', 'pose_lmdb', 'output lmdb')
 tf.app.flags.DEFINE_integer('batch_size', 1, 'Batch Size')
 
-
+def load_net_data(vfmt):
+    """Load from formatted dir weights + biases layers, as dict.
+    
+    Expected format: dir/fname_{lyr}-{wgt}.npy .
+    Original seemed to create object arrays (on both levels), but usage indicates dicts are preferable.
+    SBM.
+    """
+    d = dict()
+    for lyr in ("conv1","conv2","conv3","conv4","conv5","fc6","fc7","fc8"):
+                #"fc8_flickr"): Layer name doesn't work in dicts.
+        d[lyr] = dict()
+        for wgt in ("weights","biases"):
+            d[lyr][wgt] = np.load(vfmt.format("_" + lyr + "-" + wgt))
+        #d[lyr] = np.array(d[lyr])
+    
+    return d #np.array(d)
 
 def run_pose_estimation(root_model_path, inputFile, outputDB, model_used, lr_rate_scalar, if_dropout, keep_rate):
 
     # Load training images mean: The values are in the range of [0,1], so the image pixel values should also divided by 255 
-    file = np.load(root_model_path + "perturb_Oxford_train_imgs_mean.npz")
+    file = np_load(root_model_path + "perturb_Oxford_train_imgs_mean.npz")
     train_mean_vec = file["train_mean_vec"]
     del file
     
     # Load training labels mean and std
-    file = np.load(root_model_path +"perturb_Oxford_train_labels_mean_std.npz")
+    file = np_load(root_model_path + "perturb_Oxford_train_labels_mean_std.npz")
     mean_labels = file["mean_labels"]
     std_labels = file["std_labels"]
     del file
-
 
     # placeholders for the batches                                                                                                                                      
     x = tf.placeholder(tf.float32, [FLAGS.batch_size, FLAGS.image_size, FLAGS.image_size, 3])
     y = tf.placeholder(tf.float32, [FLAGS.batch_size, 6])
    
-    net_data = np.load(root_model_path +"PAM_frontal_ALexNet.npy").item()
+    # SBM Dict2 of several type(weights,biases) stored as pickled object array. Very bad for compat. Flattened it.
+    
+    # net_data = np_load(root_model_path + "PAM_frontal_ALexNet.npy").item()
+    net_data = load_net_data(root_model_path + "PAM_frontal_ALexNet{}.npy")
     pose_3D_model = Pose_model.ThreeD_Pose_Estimation(x, y, 'valid', if_dropout, keep_rate, keep_rate, lr_rate_scalar, net_data, FLAGS.batch_size, mean_labels, std_labels)
     pose_3D_model._build_graph()
     del net_data
@@ -58,12 +82,12 @@ def run_pose_estimation(root_model_path, inputFile, outputDB, model_used, lr_rat
     # #Add ops to save and restore all the variables.   
     saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.VARIABLES, scope='Spatial_Transformer'))
 
-    pose_lmdb_env = lmdb.Environment(outputDB, map_size=1e12)
-
+    # SBM 1tb is excessive.
+    pose_lmdb_env = lmdb.Environment(outputDB, map_size=1e9)
+    #pose_lmdb_env = lmdb.Environment(outputDB, map_size=1e12)
     
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True )) as sess, \
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess, \
          pose_lmdb_env.begin(write=True) as pose_txn:
-
         
         # Restore variables from disk.
         load_path = root_model_path + model_used
@@ -77,8 +101,8 @@ def run_pose_estimation(root_model_path, inputFile, outputDB, model_used, lr_rat
             csvreader = csv.reader(csvfile, delimiter=',')
             lines = csvfile.readlines()
             for lin in lines:
-                ### THE file is of the form
-                ### key1, image_path_key_1
+                # ## THE file is of the form
+                # ## key1, image_path_key_1
                 mykey = lin.split(',')[0]
                 image_file_path = lin.split(',')[-1].rstrip('\n')
                 import cv2
@@ -90,7 +114,7 @@ def run_pose_estimation(root_model_path, inputFile, outputDB, model_used, lr_rat
                     image = np.append(image_r, image_r, axis=2)
                     image = np.append(image, image_r, axis=2)
 
-                label = np.array([0.,0.,0.,0.,0.,0.])
+                label = np.array([0., 0., 0., 0., 0., 0.])
                 id_labels = np.array([0])
                 
                 # Normalize images and labels 
@@ -99,23 +123,26 @@ def run_pose_estimation(root_model_path, inputFile, outputDB, model_used, lr_rat
 
                 # Reshape the image and label to fit model
                 nr_image = nr_image.reshape(1, FLAGS.image_size, FLAGS.image_size, 3)
-                nr_pose_label = nr_pose_label.reshape(1,6)
+                nr_pose_label = nr_pose_label.reshape(1, 6)
 
                 # Get predicted R-ts
                 pred_Rts = sess.run(pose_3D_model.preds_unNormalized, feed_dict={x: nr_image, y: nr_pose_label})
-                print 'Predicted pose for:  ' + mykey
-                pose_txn.put( mykey , pred_Rts[0].astype('float32') )
+                print ('Predicted pose for:  ' + mykey)
+                # SBM Won't implicitly convert unicode to bytes, 2v3.
+                #pose_txn.put(mykey , pred_Rts[0].astype('float32'))
+                pose_txn.put(mykey.encode() , pred_Rts[0].astype('float32'))
 
 
-def esimatePose(root_model_path, inputFile, outputDB, model_used, lr_rate_scalar, if_dropout, keep_rate, use_gpu=False ):
-    ## Force TF to use CPU oterwise we set the ID of the string of GPU we wanna use but here we are going use CPU
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1' #e.g. str(FLAGS.gpu_id)# '7'
+def esimatePose(root_model_path, inputFile, outputDB, model_used, lr_rate_scalar, if_dropout, keep_rate, use_gpu=False):
+    # # Force TF to use CPU oterwise we set the ID of the string of GPU we wanna use but here we are going use CPU
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'  # e.g. str(FLAGS.gpu_id)# '7'
     if use_gpu == False:
         dev = '/cpu:0'
-        print "Using CPU"
+        print ("Using CPU")
     elif usc_gpu == True:
         dev = '/gpu:0'
-        print "Using GPU " + os.environ['CUDA_VISIBLE_DEVICES']
+        print ("Using GPU " + os.environ['CUDA_VISIBLE_DEVICES'])
     else:
         raise ValueError('Only support 0 or 1 gpu.')
-    run_pose_estimation( root_model_path, inputFile, outputDB, model_used, lr_rate_scalar, if_dropout, keep_rate )
+    run_pose_estimation(root_model_path, inputFile, outputDB, model_used, lr_rate_scalar, if_dropout, keep_rate)
+

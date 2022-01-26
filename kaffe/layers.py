@@ -55,6 +55,7 @@ LAYER_TYPES = LAYER_DESCRIPTORS.keys()
 
 LayerType = type('LayerType', (), {t: t for t in LAYER_TYPES})
 
+
 class NodeKind(LayerType):
 
     @staticmethod
@@ -94,7 +95,7 @@ class NodeDispatch(object):
         try:
             return getattr(self, name)
         except AttributeError:
-            raise NodeDispatchError('No handler found for node kind: %s (expected: %s)' %
+            raise NodeDispatchError('No handler found for node kind: %s (expected: %s)' % 
                                     (node_kind, name))
 
 

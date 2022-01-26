@@ -14,9 +14,10 @@
 # ==============================================================================
 
 # %% Borrowed utils from here: https://github.com/pkmital/tensorflow_tutorials/
-#import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 import csv
+
 
 def conv2d(x, n_filters,
            k_h=5, k_w=5,
@@ -66,6 +67,7 @@ def conv2d(x, n_filters,
                 initializer=tf.truncated_normal_initializer(stddev=stddev))
             conv = conv + b
         return conv
+
     
 def linear(x, n_units, scope=None, stddev=0.02,
            activation=lambda x: x):
@@ -93,6 +95,7 @@ def linear(x, n_units, scope=None, stddev=0.02,
         matrix = tf.get_variable("Matrix", [shape[1], n_units], tf.float32,
                                  tf.random_normal_initializer(stddev=stddev))
         return activation(tf.matmul(x, matrix))
+
     
 # %%
 def weight_variable(shape):
@@ -103,9 +106,10 @@ def weight_variable(shape):
     shape : list
         Size of weight variable
     '''
-    #initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
+    # initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
     initial = tf.zeros(shape)
     return tf.Variable(initial)
+
 
 # %%
 def bias_variable(shape):
@@ -119,6 +123,7 @@ def bias_variable(shape):
     initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
     return tf.Variable(initial)
 
+
 # %% 
 def dense_to_one_hot(labels, n_classes=2):
     """Convert class labels from scalars to one-hot vectors."""
@@ -131,22 +136,22 @@ def dense_to_one_hot(labels, n_classes=2):
 
 
 def prepare_trainVal_img_list(img_list, num_subjs):
-    #num_imgs_per_subj =np.zeros([num_subjs])
+    # num_imgs_per_subj =np.zeros([num_subjs])
     id_label_list = []
     for row in img_list:
         id_label = int(row[8])
-        #num_imgs_per_subj[id_label] += 1
+        # num_imgs_per_subj[id_label] += 1
         id_label_list.append(id_label)
 
     id_label_list = np.asarray(id_label_list)
     id_label_list = np.reshape(id_label_list, [-1])
     
     train_indices_list = []
-    valid_indices_list= [] 
+    valid_indices_list = [] 
     eval_train_indices_list = []
     eval_valid_indices_list = [] 
     for i in range(num_subjs):
-        print i
+        print (i)
         curr_subj_idx = np.nonzero(id_label_list == i)[0]
         tmp = np.random.permutation(curr_subj_idx)
         per80 = np.floor(len(curr_subj_idx) * 0.8)
@@ -163,16 +168,16 @@ def prepare_trainVal_img_list(img_list, num_subjs):
     valid_indices_list = np.asarray(valid_indices_list)
     eval_train_indices_list = np.asarray(eval_train_indices_list)
     eval_valid_indices_list = np.asarray(eval_valid_indices_list)
-    #print train_indices_list, train_indices_list.shape 
+    # print (train_indices_list, train_indices_list.shape )
     
     train_indices_list = np.hstack(train_indices_list).astype('int')
     valid_indices_list = np.hstack(valid_indices_list).astype('int')
     eval_train_indices_list = np.hstack(eval_train_indices_list).astype('int')
     eval_valid_indices_list = np.hstack(eval_valid_indices_list).astype('int')
-    print train_indices_list.shape, valid_indices_list.shape, eval_train_indices_list.shape, eval_valid_indices_list.shape
+    print (train_indices_list.shape, valid_indices_list.shape, eval_train_indices_list.shape, eval_valid_indices_list.shape)
     
     img_list = np.asarray(img_list)
-    print img_list.shape
+    print (img_list.shape)
     train_list = img_list[train_indices_list]
     valid_list = img_list[valid_indices_list]
     eval_train_list = img_list[eval_train_indices_list]
@@ -192,28 +197,24 @@ def select_eval_img_list(img_list, num_subjs, save_file_name):
     id_label_list = np.asarray(id_label_list)
     id_label_list = np.reshape(id_label_list, [-1])
 
-
     eval_indices_list = []
     for i in range(num_subjs):
-        print i
+        print (i)
         curr_subj_idx = np.nonzero(id_label_list == i)[0]
         tmp = np.random.permutation(curr_subj_idx)
         inds = tmp[0:min(5, len(curr_subj_idx))]
 
         eval_indices_list.append(inds)
 
-
     eval_indices_list = np.asarray(eval_indices_list)
     eval_indices_list = np.hstack(eval_indices_list).astype('int')
-    print eval_indices_list.shape
+    print (eval_indices_list.shape)
 
     img_list = np.asarray(img_list)
-    print img_list.shape
+    print (img_list.shape)
     eval_list = img_list[eval_indices_list]
 
     np.savez(save_file_name, eval_list=eval_list)
-
-    
 
     """
     # Record the number of images per subject                                                                                                                                                               
@@ -229,7 +230,7 @@ def select_eval_img_list(img_list, num_subjs, save_file_name):
     count = 0
     for row in valid_img_list:
         count += 1
-        print count
+        print (count)
         image_key = row[0]                                               
         image_path = row[1]
         id_label = int(row[8])
@@ -246,12 +247,12 @@ def select_eval_img_list(img_list, num_subjs, save_file_name):
             idx += 1
     """
 
+
 def input_processing(images, pose_labels, id_labels, train_mean_vec, mean_labels, std_labels, num_imgs, image_size, num_classes):
 
     images = images.reshape([num_imgs, image_size, image_size, 3])
     pose_labels = pose_labels.reshape([num_imgs, 6])
     id_labels = id_labels.reshape([num_imgs, 1])
-
                                                                                                                                                                
     id_labels = dense_to_one_hot(id_labels, num_classes)
 
@@ -262,23 +263,21 @@ def input_processing(images, pose_labels, id_labels, train_mean_vec, mean_labels
    
     # Normalize labels
     normalized_pose_labels = (pose_labels - mean_labels) / (std_labels + 0.000000000000000001)
-
                                 
     return normalized_images, normalized_pose_labels, id_labels
-
 
 
 def train_mean_vec2mat(train_mean, images_array):
         height = images_array.shape[1]
         width = images_array.shape[2]
-        #batch = images_array.shape[0]                                                                                                                                                                       
-        train_mean_R = np.matlib.repmat(train_mean[0],height,width)
-        train_mean_G = np.matlib.repmat(train_mean[1],height,width)
-        train_mean_B = np.matlib.repmat(train_mean[2],height,width)
+        # batch = images_array.shape[0]                                                                                                                                                                       
+        train_mean_R = np.matlib.repmat(train_mean[0], height, width)
+        train_mean_G = np.matlib.repmat(train_mean[1], height, width)
+        train_mean_B = np.matlib.repmat(train_mean[2], height, width)
 
-        R = np.reshape(train_mean_R, (height,width,1))
-        G = np.reshape(train_mean_G, (height,width,1))
-        B = np.reshape(train_mean_B, (height,width,1))
+        R = np.reshape(train_mean_R, (height, width, 1))
+        G = np.reshape(train_mean_G, (height, width, 1))
+        B = np.reshape(train_mean_B, (height, width, 1))
         train_mean_image = np.append(R, G, axis=2)
         train_mean_image = np.append(train_mean_image, B, axis=2)
 

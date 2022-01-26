@@ -22,13 +22,14 @@ https://arxiv.org/pdf/1605.07146v1.pdf
 """
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf # SBM
+tf.compat.v1.disable_eager_execution()
 from tensorflow.python.training import moving_averages
 
-#import sys
-#sys.path.append('/staging/pn/fengjuch/transformer')
-#from spatial_transformer import transformer
-#from tf_utils import weight_variable, bias_variable, dense_to_one_hot
+# import sys
+# sys.path.append('/staging/pn/fengjuch/transformer')
+# from spatial_transformer import transformer
+# from tf_utils import weight_variable, bias_variable, dense_to_one_hot
 
 """
 HParams = namedtuple('HParams',
@@ -36,6 +37,7 @@ HParams = namedtuple('HParams',
                      'num_residual_units, use_bottleneck, weight_decay_rate, '
                      'relu_leakiness, optimizer')
 """
+
 
 class ThreeD_Pose_Estimation(object):
   """ResNet model."""
@@ -49,7 +51,7 @@ class ThreeD_Pose_Estimation(object):
       labels: Batches of labels. [batch_size, num_classes]
       mode: One of 'train' and 'eval'.
     """
-    #self.hps = hps
+    # self.hps = hps
     self.batch_size = batch_size
     self._images = images
     self.labels = labels
@@ -58,14 +60,14 @@ class ThreeD_Pose_Estimation(object):
     self.ifdropout = ifdropout
     self.keep_rate_fc6 = keep_rate_fc6
     self.keep_rate_fc7 = keep_rate_fc7
-    self.ifadd_weight_decay = 0 #ifadd_weight_decay
+    self.ifadd_weight_decay = 0  # ifadd_weight_decay
     self.net_data = net_data
     self.lr_rate_fac = lr_rate_fac
     self._extra_train_ops = []
     self.optimizer = 'Adam'
     self.mean_labels = mean_labels
     self.std_labels = std_labels
-    #self.train_mean_vec = train_mean_vec
+    # self.train_mean_vec = train_mean_vec
 
   def _build_graph(self):
     """Build a whole graph for the model."""
@@ -75,7 +77,7 @@ class ThreeD_Pose_Estimation(object):
     if self.mode == 'train':
       self._build_train_op()
     
-    #self.summaries = tf.merge_all_summaries()
+    # self.summaries = tf.merge_all_summaries()
 
   def _stride_arr(self, stride):
     """Map a stride scalar to the stride array for tf.nn.conv2d."""
@@ -83,24 +85,23 @@ class ThreeD_Pose_Estimation(object):
 
   def _build_model(self):
     """Build the core model within the graph."""
-    #with tf.variable_scope('init'):
+    # with tf.variable_scope('init'):
      # x = self._images
-     # print x, x.get_shape()
+     # print (x, x.get_shape())
      # x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
-     # print x, x.get_shape()
+     # print (x, x.get_shape())
     with tf.variable_scope('Spatial_Transformer'):
       x = self._images
-      x = tf.image.resize_bilinear(x, tf.constant([227,227], dtype=tf.int32)) # the image should be 227 x 227 x 3
-      print x.get_shape()
+      x = tf.image.resize_bilinear(x, tf.constant([227, 227], dtype=tf.int32))  # the image should be 227 x 227 x 3
+      print (x.get_shape())
       self.resized_img = x
-      theta = self._ST('ST2', x, 3, (16,16), 3, 16, self._stride_arr(1))
-      #print "*** ", x.get_shape()
-   
+      theta = self._ST('ST2', x, 3, (16, 16), 3, 16, self._stride_arr(1))
+      # print ("*** ", x.get_shape())
 
-    #with tf.variable_scope('logit'):
+    # with tf.variable_scope('logit'):
     #  logits = self._fully_connected(theta, self.hps.num_classes)
     #  self.predictions = tf.nn.softmax(logits)
-      #print "*** ", logits, self.predictions
+      # print ("*** ", logits, self.predictions)
 
     with tf.variable_scope('costs'):
       self.predictions = theta
@@ -109,64 +110,56 @@ class ThreeD_Pose_Estimation(object):
       pred_dim2 = theta.get_shape()[1]
 
       del theta
-      #diff = self.predictions - self.labels
-      #print diff
+      # diff = self.predictions - self.labels
+      # print (diff)
       
-      #xent = tf.mul(diff, diff) #tf.nn.l2_loss(diff)
-      #print xent
-      #xent = tf.reduce_sum(xent, 1)
-      pow_res = tf.pow(self.predictions-self.labels, 2)
+      # xent = tf.mul(diff, diff) #tf.nn.l2_loss(diff)
+      # print (xent)
+      # xent = tf.reduce_sum(xent, 1)
+      pow_res = tf.pow(self.predictions - self.labels, 2)
       """
-      print pow_res, pow_res.get_shape()
+      print (pow_res, pow_res.get_shape())
       const1 = tf.constant(1.0,shape=[pred_dim1, 3],dtype=tf.float32)
       const2 = tf.constant(1.0,shape=[pred_dim1, 3],dtype=tf.float32)
-      #print const1, const2, const1.get_shape(), const2.get_shape()
+      #print (const1, const2, const1.get_shape(), const2.get_shape())
       const = tf.concat(1,[const1, const2])
-      print const, const.get_shape()
+      print (const, const.get_shape())
       cpow_res = tf.mul(const,pow_res) 
       xent = tf.reduce_sum(cpow_res,1)
-      print xent
+      print (xent)
       """
-      xent = tf.reduce_sum(pow_res,1)
+      xent = tf.reduce_sum(pow_res, 1)
       self.cost = tf.reduce_mean(xent, name='xent')
-      #print self.cost
+      # print (self.cost)
       
-      #self.cost = tf.nn.l2_loss(diff)
+      # self.cost = tf.nn.l2_loss(diff)
       #  Add weight decay of needed
       if self.ifadd_weight_decay == 1:
         self.cost += self._decay()
-      
 
-      #self.train_step = tf.train.GradientDescentOptimizer(self.hps.lrn_rate).minimize(self.cost)
+      # self.train_step = tf.train.GradientDescentOptimizer(self.hps.lrn_rate).minimize(self.cost)
 
-      #tf.scalar_summary('cost', self.cost)
+      # tf.scalar_summary('cost', self.cost)
 
-
-
-  def conv(self, input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group=1):
+  def conv(self, input, kernel, biases, k_h, k_w, c_o, s_h, s_w, padding="VALID", group=1):
     '''From https://github.com/ethereon/caffe-tensorflow
     '''
     c_i = input.get_shape()[-1]
-    assert c_i%group==0
-    assert c_o%group==0
+    assert c_i % group == 0
+    assert c_o % group == 0
     convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
     
-    
-    if group==1:
+    if group == 1:
         conv = convolve(input, kernel)
     else:
-        #input_groups = tf.split(3, group, input)
-        #kernel_groups = tf.split(3, group, kernel)
+        # input_groups = tf.split(3, group, input)
+        # kernel_groups = tf.split(3, group, kernel)
         input_groups = tf.split(input, group, 3)
         kernel_groups = tf.split(kernel, group, 3)
-        output_groups = [convolve(i, k) for i,k in zip(input_groups, kernel_groups)]
-        #conv = tf.concat(3, output_groups)
+        output_groups = [convolve(i, k) for i, k in zip(input_groups, kernel_groups)]
+        # conv = tf.concat(3, output_groups)
         conv = tf.concat(output_groups, 3)
-    return  tf.reshape(tf.nn.bias_add(conv, biases), [-1]+conv.get_shape().as_list()[1:])
-
-
-
-
+    return  tf.reshape(tf.nn.bias_add(conv, biases), [-1] + conv.get_shape().as_list()[1:])
 
   def _ST(self, name, x, channel_x, out_size, filter_size, out_filters, strides):
     """ Spatial Transformer. """
@@ -182,24 +175,22 @@ class ThreeD_Pose_Estimation(object):
 
       # conv1
       with tf.name_scope('conv1') as scope:
-        #conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
+        # conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
         k_h = 11; k_w = 11; c_o = 96; s_h = 4; s_w = 4
         conv1W = tf.Variable(self.net_data["conv1"]["weights"], trainable=True, name='W')
         conv1b = tf.Variable(self.net_data["conv1"]["biases"], trainable=True, name='baises')
         conv1_in = self.conv(x, conv1W, conv1b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=1)
         conv1 = tf.nn.relu(conv1_in, name='conv1')
-        print x.get_shape(), conv1.get_shape()
-        
+        print (x.get_shape(), conv1.get_shape())
 
-        #maxpool1
-        #max_pool(3, 3, 2, 2, padding='VALID', name='pool1')
+        # maxpool1
+        # max_pool(3, 3, 2, 2, padding='VALID', name='pool1')
         k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
         maxpool1 = tf.nn.max_pool(conv1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding, name='pool1')
-        print maxpool1.get_shape()
-        
+        print (maxpool1.get_shape())
 
-        #lrn1                                                                                                                   
-        #lrn(2, 2e-05, 0.75, name='norm1')                                                                                      
+        # lrn1                                                                                                                   
+        # lrn(2, 2e-05, 0.75, name='norm1')                                                                                      
         radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
         lrn1 = tf.nn.local_response_normalization(maxpool1,
                                                   depth_radius=radius,
@@ -207,30 +198,24 @@ class ThreeD_Pose_Estimation(object):
                                                   beta=beta,
                                                   bias=bias, name='norm1')
 
-
-
       # conv2
       with tf.name_scope('conv2') as scope:
-        #conv(5, 5, 256, 1, 1, group=2, name='conv2')
+        # conv(5, 5, 256, 1, 1, group=2, name='conv2')
         k_h = 5; k_w = 5; c_o = 256; s_h = 1; s_w = 1; group = 2
         conv2W = tf.Variable(self.net_data["conv2"]["weights"], trainable=True, name='W')
         conv2b = tf.Variable(self.net_data["conv2"]["biases"], trainable=True, name='baises')
         conv2_in = self.conv(lrn1, conv2W, conv2b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
         conv2 = tf.nn.relu(conv2_in, name='conv2')
-        print conv2.get_shape()
+        print (conv2.get_shape())
 
-
-
-        #maxpool2                                                                                                              
-        #max_pool(3, 3, 2, 2, padding='VALID', name='pool2')                                                                    
+        # maxpool2                                                                                                              
+        # max_pool(3, 3, 2, 2, padding='VALID', name='pool2')                                                                    
         k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
         maxpool2 = tf.nn.max_pool(conv2, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding, name='pool2')
-        print maxpool2.get_shape()
+        print (maxpool2.get_shape())
 
-
-
-        #lrn2
-        #lrn(2, 2e-05, 0.75, name='norm2')
+        # lrn2
+        # lrn(2, 2e-05, 0.75, name='norm2')
         radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
         lrn2 = tf.nn.local_response_normalization(maxpool2,
                                                   depth_radius=radius,
@@ -238,66 +223,63 @@ class ThreeD_Pose_Estimation(object):
                                                   beta=beta,
                                                   bias=bias, name='norm2')
 
-        
-
       # conv3                                                                                                                                   
       with tf.name_scope('conv3') as scope:
-        #conv(3, 3, 384, 1, 1, name='conv3')
+        # conv(3, 3, 384, 1, 1, name='conv3')
         k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 1
         conv3W = tf.Variable(self.net_data["conv3"]["weights"], trainable=True, name='W')
         conv3b = tf.Variable(self.net_data["conv3"]["biases"], trainable=True, name='baises')
         conv3_in = self.conv(lrn2, conv3W, conv3b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
         conv3 = tf.nn.relu(conv3_in, name='conv3')
-        print conv3.get_shape()
+        print (conv3.get_shape())
     
       # conv4                                                                                                                                                            
       with tf.name_scope('conv4') as scope:
-        #conv(3, 3, 384, 1, 1, group=2, name='conv4')
+        # conv(3, 3, 384, 1, 1, group=2, name='conv4')
         k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 2
         conv4W = tf.Variable(self.net_data["conv4"]["weights"], trainable=True, name='W')
         conv4b = tf.Variable(self.net_data["conv4"]["biases"], trainable=True, name='baises')
         conv4_in = self.conv(conv3, conv4W, conv4b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
         conv4 = tf.nn.relu(conv4_in, name='conv4')
-        print conv4.get_shape()
+        print (conv4.get_shape())
 
       # conv5                                                                                                                                             
       with tf.name_scope('conv5') as scope:
-        #conv(3, 3, 256, 1, 1, group=2, name='conv5')
+        # conv(3, 3, 256, 1, 1, group=2, name='conv5')
         k_h = 3; k_w = 3; c_o = 256; s_h = 1; s_w = 1; group = 2
         conv5W = tf.Variable(self.net_data["conv5"]["weights"], trainable=True, name='W')
         conv5b = tf.Variable(self.net_data["conv5"]["biases"], trainable=True, name='baises')
         self.conv5b = conv5b
         conv5_in = self.conv(conv4, conv5W, conv5b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
         conv5 = tf.nn.relu(conv5_in, name='conv5')
-        print conv5.get_shape()
+        print (conv5.get_shape())
 
-        #maxpool5
-        #max_pool(3, 3, 2, 2, padding='VALID', name='pool5')
+        # maxpool5
+        # max_pool(3, 3, 2, 2, padding='VALID', name='pool5')
         k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
         maxpool5 = tf.nn.max_pool(conv5, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding, name='pool5')
-        print maxpool5.get_shape(), maxpool5.get_shape()[1:], int(np.prod(maxpool5.get_shape()[1:]))
-        
+        print (maxpool5.get_shape(), maxpool5.get_shape()[1:], int(np.prod(maxpool5.get_shape()[1:])))
       
       # fc6
       with tf.variable_scope('fc6') as scope:
-        #fc(4096, name='fc6')
+        # fc(4096, name='fc6')
         fc6W = tf.Variable(self.net_data["fc6"]["weights"], trainable=True, name='W')
         fc6b = tf.Variable(self.net_data["fc6"]["biases"], trainable=True, name='baises')
         self.fc6W = fc6W
         self.fc6b = fc6b
         fc6 = tf.nn.relu_layer(tf.reshape(maxpool5, [-1, int(np.prod(maxpool5.get_shape()[1:]))]), fc6W, fc6b, name='fc6')
-        print fc6.get_shape()
+        print (fc6.get_shape())
         if self.ifdropout == 1:
           fc6 = tf.nn.dropout(fc6, self.keep_rate_fc6, name='fc6_dropout')
             
       # fc7 
       with tf.variable_scope('fc7') as scope:
-        #fc(4096, name='fc7')
+        # fc(4096, name='fc7')
         fc7W = tf.Variable(self.net_data["fc7"]["weights"], trainable=True, name='W')
         fc7b = tf.Variable(self.net_data["fc7"]["biases"], trainable=True, name='baises')
         self.fc7b = fc7b
         fc7 = tf.nn.relu_layer(fc6, fc7W, fc7b, name='fc7')
-        print fc7.get_shape()
+        print (fc7.get_shape())
         if self.ifdropout == 1:
           fc7 = tf.nn.dropout(fc7, self.keep_rate_fc7, name='fc7_dropout')
                                                                                                    
@@ -312,9 +294,11 @@ class ThreeD_Pose_Estimation(object):
 
         # Move everything into depth so we can perform a single matrix multiplication.                            
         fc7 = tf.reshape(fc7, [self.batch_size, -1])
-        dim = fc7.get_shape()[1].value
-        #print "fc7 dim:\n"
-        #print fc7.get_shape(), dim
+        # SBM why .value?
+        #dim = fc7.get_shape()[1].value
+        dim = fc7.get_shape()[1]
+        # print ("fc7 dim:\n")
+        # print (fc7.get_shape(), dim)
         fc8W = tf.Variable(tf.random_normal([dim, 6], mean=0.0, stddev=0.01), trainable=True, name='W')                                                                    
         fc8b = tf.Variable(tf.zeros([6]), trainable=True, name='baises')                                                                                                      
         self.fc8b = fc8b
@@ -326,7 +310,7 @@ class ThreeD_Pose_Estimation(object):
         biases = self._variable_on_cpu('biases', [6], tf.constant_initializer(0.1))
         theta = tf.matmul(reshape, weights) + biases
         
-        print theta.get_shape()
+        print (theta.get_shape())
         """
 
         self.theta = theta
@@ -334,11 +318,9 @@ class ThreeD_Pose_Estimation(object):
         self.fc8b = fc8b
         # %% We'll create a spatial transformer module to identify discriminative
         # %% patches
-        #h_trans = self._transform(theta, x, out_size, channel_x)
-        #print h_trans.get_shape()
+        # h_trans = self._transform(theta, x, out_size, channel_x)
+        # print (h_trans.get_shape())
       return theta
-
-
 
   def _variable_with_weight_decay(self, name, shape, stddev, wd):
     """Helper to create an initialized Variable with weight decay.                                                                                                               
@@ -353,7 +335,7 @@ class ThreeD_Pose_Estimation(object):
     Returns:                                                                                                                                                                                                
     Variable Tensor                                                                                                                                                                                         
     """
-    dtype = tf.float32 #if FLAGS.use_fp16 else tf.float32                                                                                                                                                    
+    dtype = tf.float32  # if FLAGS.use_fp16 else tf.float32                                                                                                                                                    
     var = self._variable_on_cpu(
       name,
       shape,
@@ -362,8 +344,6 @@ class ThreeD_Pose_Estimation(object):
       weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
       tf.add_to_collection('losses', weight_decay)
     return var
-
-
 
   def _variable_on_cpu(self, name, shape, initializer):
     """Helper to create a Variable stored on CPU memory.                                                                                                                                                    
@@ -374,18 +354,14 @@ class ThreeD_Pose_Estimation(object):
     Variable Tensor                                                                                                                                                                                         
     """
     with tf.device('/cpu:0'):
-      dtype = tf.float32 # if FLAGS.use_fp16 else tf.float32                                                                                                                                                 
+      dtype = tf.float32  # if FLAGS.use_fp16 else tf.float32                                                                                                                                                 
       var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
     return var
 
-
-
-
-
   def _build_train_op(self):
     """Build training specific ops for the graph."""
-    #self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
-    #tf.scalar_summary('learning rate', self.lrn_rate)
+    # self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
+    # tf.scalar_summary('learning rate', self.lrn_rate)
     """
     trainable_variables = tf.trainable_variables()
     grads = tf.gradients(self.cost, trainable_variables)
@@ -413,7 +389,7 @@ class ThreeD_Pose_Estimation(object):
     """Batch normalization."""
     with tf.variable_scope(name):
       params_shape = [x.get_shape()[-1]]
-      #print x.get_shape(), params_shape
+      # print (x.get_shape(), params_shape)
       beta = tf.get_variable(
           'beta', params_shape, tf.float32,
           initializer=tf.constant_initializer(0.0, tf.float32))
@@ -481,7 +457,7 @@ class ThreeD_Pose_Estimation(object):
         orig_x = tf.nn.avg_pool(orig_x, stride, stride, 'VALID')
         orig_x = tf.pad(
             orig_x, [[0, 0], [0, 0], [0, 0],
-                     [(out_filter-in_filter)//2, (out_filter-in_filter)//2]])
+                     [(out_filter - in_filter) // 2, (out_filter - in_filter) // 2]])
       x += orig_x
 
     tf.logging.info('image after unit %s', x.get_shape())
@@ -502,17 +478,17 @@ class ThreeD_Pose_Estimation(object):
         x = self._relu(x, self.hps.relu_leakiness)
 
     with tf.variable_scope('sub1'):
-      x = self._conv('conv1', x, 1, in_filter, out_filter/4, stride)
+      x = self._conv('conv1', x, 1, in_filter, out_filter / 4, stride)
 
     with tf.variable_scope('sub2'):
       x = self._batch_norm('bn2', x)
       x = self._relu(x, self.hps.relu_leakiness)
-      x = self._conv('conv2', x, 3, out_filter/4, out_filter/4, [1, 1, 1, 1])
+      x = self._conv('conv2', x, 3, out_filter / 4, out_filter / 4, [1, 1, 1, 1])
 
     with tf.variable_scope('sub3'):
       x = self._batch_norm('bn3', x)
       x = self._relu(x, self.hps.relu_leakiness)
-      x = self._conv('conv3', x, 1, out_filter/4, out_filter, [1, 1, 1, 1])
+      x = self._conv('conv3', x, 1, out_filter / 4, out_filter, [1, 1, 1, 1])
 
     with tf.variable_scope('sub_add'):
       if in_filter != out_filter:
@@ -529,7 +505,7 @@ class ThreeD_Pose_Estimation(object):
       if var.op.name.find(r'DW') > 0:
         costs.append(tf.nn.l2_loss(var))
         aaa = tf.nn.l2_loss(var)
-        #print aaa
+        # print (aaa)
         # tf.histogram_summary(var.op.name, var)
 
     return tf.mul(self.hps.weight_decay_rate, tf.add_n(costs))
@@ -541,7 +517,7 @@ class ThreeD_Pose_Estimation(object):
       kernel = tf.get_variable(
           'DW', [filter_size, filter_size, in_filters, out_filters],
           tf.float32, initializer=tf.random_normal_initializer(
-              stddev=np.sqrt(2.0/n)))
+              stddev=np.sqrt(2.0 / n)))
       return tf.nn.conv2d(x, kernel, strides, padding='SAME')
 
   def _relu(self, x, leakiness=0.0):
@@ -551,18 +527,17 @@ class ThreeD_Pose_Estimation(object):
   def _fully_connected(self, x, out_dim):
     """FullyConnected layer for final output."""
     x = tf.reshape(x, [self.hps.batch_size, -1])
-    #print "*** ", x.get_shape()
+    # print ("*** ", x.get_shape())
     w = tf.get_variable(
         'DW', [x.get_shape()[1], out_dim],
         initializer=tf.uniform_unit_scaling_initializer(factor=1.0))
-    #print "*** ", w.get_shape()
+    # print ("*** ", w.get_shape())
     b = tf.get_variable('biases', [out_dim],
                         initializer=tf.constant_initializer())
-    #print "*** ", b.get_shape()
+    # print ("*** ", b.get_shape())
     aaa = tf.nn.xw_plus_b(x, w, b)
-    #print "*** ", aaa.get_shape()
+    # print ("*** ", aaa.get_shape())
     return tf.nn.xw_plus_b(x, w, b)
-
  
   def _fully_connected_ST(self, x, out_dim):
     """FullyConnected layer for final output of the localization network in the spatial transformer"""
@@ -577,12 +552,9 @@ class ThreeD_Pose_Estimation(object):
                         initializer=tf.constant_initializer(initial))
     return tf.nn.xw_plus_b(x, w, b)
 
-   
-
   def _global_avg_pool(self, x):
     assert x.get_shape().ndims == 4
     return tf.reduce_mean(x, [1, 2])
-
 
   def _repeat(self, x, n_repeats):
     with tf.variable_scope('_repeat'):
@@ -592,18 +564,17 @@ class ThreeD_Pose_Estimation(object):
       x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
       return tf.reshape(x, [-1])
 
-
   def _interpolate(self, im, x, y, out_size, channel_x):
     with tf.variable_scope('_interpolate2'):
       # constants
-      num_batch = self.hps.batch_size #tf.shape(im)[0]
-      print num_batch
+      num_batch = self.hps.batch_size  # tf.shape(im)[0]
+      print (num_batch)
       height = tf.shape(im)[1]
       width = tf.shape(im)[2]
       channels = tf.shape(im)[3]
-      print channels
-      #channels = tf.cast(channels, tf.int32)
-      #print channels
+      print (channels)
+      # channels = tf.cast(channels, tf.int32)
+      # print (channels)
       x = tf.cast(x, 'float32')
       y = tf.cast(y, 'float32')
       height_f = tf.cast(height, 'float32')
@@ -611,14 +582,14 @@ class ThreeD_Pose_Estimation(object):
       out_height = out_size[0]
       out_width = out_size[1]
       zero = tf.zeros([], dtype='int32')
-      #max_y = tf.cast(tf.shape(im)[1] - 1, 'int32')
-      #max_x = tf.cast(tf.shape(im)[2] - 1, 'int32')
+      # max_y = tf.cast(tf.shape(im)[1] - 1, 'int32')
+      # max_x = tf.cast(tf.shape(im)[2] - 1, 'int32')
       
       max_y = tf.cast(height - 1, 'int32')
       max_x = tf.cast(width - 1, 'int32')
       # scale indices from [-1, 1] to [0, width/height]
-      x = (x + 1.0)*(width_f) / 2.0
-      y = (y + 1.0)*(height_f) / 2.0
+      x = (x + 1.0) * (width_f) / 2.0
+      y = (y + 1.0) * (height_f) / 2.0
 
       # do sampling
       x0 = tf.cast(tf.floor(x), 'int32')
@@ -631,10 +602,10 @@ class ThreeD_Pose_Estimation(object):
       y0 = tf.clip_by_value(y0, zero, max_y)
       y1 = tf.clip_by_value(y1, zero, max_y)
       dim2 = width
-      dim1 = width*height
-      base = self._repeat(tf.range(num_batch)*dim1, out_height*out_width)
-      base_y0 = base + y0*dim2
-      base_y1 = base + y1*dim2
+      dim1 = width * height
+      base = self._repeat(tf.range(num_batch) * dim1, out_height * out_width)
+      base_y0 = base + y0 * dim2
+      base_y1 = base + y1 * dim2
       idx_a = base_y0 + x0
       idx_b = base_y1 + x0
       idx_c = base_y0 + x1
@@ -643,28 +614,28 @@ class ThreeD_Pose_Estimation(object):
       # use indices to lookup pixels in the flat image and restore
       # channels dim
       im_flat = tf.reshape(im, tf.pack([-1, channel_x]))
-      #aa = tf.pack([-1, channels])
-      #im_flat = tf.reshape(im, [-1, channels])
-      #print im.get_shape(), im_flat.get_shape() #, aa.get_shape()
+      # aa = tf.pack([-1, channels])
+      # im_flat = tf.reshape(im, [-1, channels])
+      # print (im.get_shape(), im_flat.get_shape() #, aa.get_shape())
       im_flat = tf.cast(im_flat, 'float32')
       Ia = tf.gather(im_flat, idx_a)
       Ib = tf.gather(im_flat, idx_b)
       Ic = tf.gather(im_flat, idx_c)
       Id = tf.gather(im_flat, idx_d)
-      #print im_flat.get_shape(), idx_a.get_shape()
-      #print Ia.get_shape(), Ib.get_shape(), Ic.get_shape(), Id.get_shape()
+      # print (im_flat.get_shape(), idx_a.get_shape())
+      # print (Ia.get_shape(), Ib.get_shape(), Ic.get_shape(), Id.get_shape())
       # and finally calculate interpolated values
       x0_f = tf.cast(x0, 'float32')
       x1_f = tf.cast(x1, 'float32')
       y0_f = tf.cast(y0, 'float32')
       y1_f = tf.cast(y1, 'float32')
-      wa = tf.expand_dims(((x1_f-x) * (y1_f-y)), 1)
-      wb = tf.expand_dims(((x1_f-x) * (y-y0_f)), 1)
-      wc = tf.expand_dims(((x-x0_f) * (y1_f-y)), 1)
-      wd = tf.expand_dims(((x-x0_f) * (y-y0_f)), 1)
-      #print wa.get_shape(), wb.get_shape(), wc.get_shape(), wd.get_shape()
-      output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id])
-      #print output.get_shape()
+      wa = tf.expand_dims(((x1_f - x) * (y1_f - y)), 1)
+      wb = tf.expand_dims(((x1_f - x) * (y - y0_f)), 1)
+      wc = tf.expand_dims(((x - x0_f) * (y1_f - y)), 1)
+      wd = tf.expand_dims(((x - x0_f) * (y - y0_f)), 1)
+      # print (wa.get_shape(), wb.get_shape(), wc.get_shape(), wd.get_shape())
+      output = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
+      # print (output.get_shape())
       return output
 
   def _meshgrid(self, height, width):
@@ -688,8 +659,8 @@ class ThreeD_Pose_Estimation(object):
 
   def _transform(self, theta, input_dim, out_size, channel_input):
     with tf.variable_scope('_transform'):
-      print input_dim.get_shape(), theta.get_shape(), out_size[0], out_size[1]
-      num_batch = self.hps.batch_size #tf.shape(input_dim)[0]
+      print (input_dim.get_shape(), theta.get_shape(), out_size[0], out_size[1])
+      num_batch = self.hps.batch_size  # tf.shape(input_dim)[0]
       height = tf.shape(input_dim)[1]
       width = tf.shape(input_dim)[2]
       num_channels = tf.shape(input_dim)[3]
@@ -702,12 +673,12 @@ class ThreeD_Pose_Estimation(object):
       out_height = out_size[0]
       out_width = out_size[1]
       grid = self._meshgrid(out_height, out_width)
-      #print grid, grid.get_shape()
+      # print (grid, grid.get_shape())
       grid = tf.expand_dims(grid, 0)
       grid = tf.reshape(grid, [-1])
       grid = tf.tile(grid, tf.pack([num_batch]))
       grid = tf.reshape(grid, tf.pack([num_batch, 3, -1]))
-      #print grid, grid.get_shape()
+      # print (grid, grid.get_shape())
 
       # Transform A x (x_t, y_t, 1)^T -> (x_s, y_s)
       T_g = tf.batch_matmul(theta, grid)
@@ -715,10 +686,10 @@ class ThreeD_Pose_Estimation(object):
       y_s = tf.slice(T_g, [0, 1, 0], [-1, 1, -1])
       x_s_flat = tf.reshape(x_s, [-1])
       y_s_flat = tf.reshape(y_s, [-1])
-      #print x_s_flat.get_shape(), y_s_flat.get_shape()
+      # print (x_s_flat.get_shape(), y_s_flat.get_shape())
       input_transformed = self._interpolate(input_dim, x_s_flat, y_s_flat, out_size, channel_input)
-      #print input_transformed.get_shape()
+      # print (input_transformed.get_shape())
 
       output = tf.reshape(input_transformed, tf.pack([num_batch, out_height, out_width, channel_input]))
       return output
-      #return input_dim
+      # return input_dim
